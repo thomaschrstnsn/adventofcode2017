@@ -2,7 +2,10 @@
 {- stack
   script
   --resolver lts-9.0
+  --package hspec
 -}
+import Test.Hspec
+
 {-
  37  36  35  34  33  32  31
  38  17  16  15  14  13  30
@@ -87,5 +90,15 @@ input = 312051
 solve :: Int -> Int
 solve = manhattanDistance . coordForCell
 
+tests =
+  describe "solution" $ do
+    it "returns 0 for cell 1" $ solve 1 `shouldBe` 0
+    it "returns 3 for cell 12" $ solve 12 `shouldBe` 3
+    it "has coordinates (2,1) for cell 12" $ coordForCell 12 `shouldBe` (2, 1)
+    it "returns 2 for cell 23" $ solve 23 `shouldBe` 2
+    it "returns 31 for cell 1024" $ solve 1024 `shouldBe` 31
+
 main :: IO ()
-main = print $ solve input
+main = do
+  hspec tests
+  print $ solve input
