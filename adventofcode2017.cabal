@@ -15,9 +15,17 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      .
-  build-depends:       base >= 4.7 && < 5, hspec, QuickCheck, vector
+  build-depends:       base >= 4.7 && < 5, hspec, QuickCheck, vector, primitive
   default-language:    Haskell2010
   ghc-options:         -Wall
+
+executable day05part2
+  main-is: day05part2.hs
+  hs-source-dirs:
+      .
+  ghc-options: -Wall -threaded -rtsopts -with-rtsopts=-N -O2
+  build-depends:       base >= 4.7 && < 5, hspec, QuickCheck, vector, primitive
+  default-language: Haskell2010
 
 source-repository head
   type:     git
