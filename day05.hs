@@ -3,25 +3,27 @@
   script
   --resolver lts-9.0
   --package hspec
+  --package vector
 -}
+import qualified Data.Vector.Primitive as V
+import Data.Vector.Primitive (Vector(..), (!), (//))
 import Test.Hspec
 
-replaceNth :: Int -> (a -> a) -> [a] -> [a]
-replaceNth n op (x:xs)
-  | n == 0 = op x : xs
-  | otherwise = x : replaceNth (n - 1) op xs
+replaceNth :: V.Prim a => Int -> (a -> a) -> Vector a -> Vector a
+replaceNth n op v = v // [(n, new)]
+  where
+    new = op $ v ! n
 
 data State = State
-  { sInstructions :: [Int]
-  , sLength :: Int
+  { sInstructions :: Vector Int
   , sPointer :: Int
   }
 
 current :: State -> Int
-current s = sInstructions s !! sPointer s
+current s = sInstructions s ! sPointer s
 
 mkState :: [Int] -> State
-mkState ins = State {sInstructions = ins, sLength = length ins, sPointer = 0}
+mkState ins = State {sInstructions = V.fromList ins, sPointer = 0}
 
 increment :: State -> State
 increment state = state {sInstructions = newIns}
@@ -30,7 +32,7 @@ increment state = state {sInstructions = newIns}
 
 helper :: State -> Int -> Int
 helper state count =
-  if next >= sLength state
+  if next >= (V.length . sInstructions) state
     then count + 1
     else helper ((increment state) {sPointer = next}) $ count + 1
   where
@@ -48,4 +50,4 @@ main = do
   hspec tests
   inputLines <- lines <$> readFile "./day05input.txt"
   let input = map (\s -> read s :: Int) inputLines
-  putStrLn $ "solution: " ++ show (input)
+  putStrLn $ "solution: " ++ show (solve input)

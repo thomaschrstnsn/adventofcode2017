@@ -15,7 +15,7 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      .
-  build-depends:       base >= 4.7 && < 5, hspec, QuickCheck
+  build-depends:       base >= 4.7 && < 5, hspec, QuickCheck, vector
   default-language:    Haskell2010
   ghc-options:         -Wall
 
