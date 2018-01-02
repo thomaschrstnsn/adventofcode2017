@@ -14,6 +14,7 @@
 import qualified Control.Monad.Primitive as P
 import qualified Data.Vector.Unboxed as V
 import qualified Data.Vector.Unboxed.Mutable as MV
+import Test.Hspec
 
 replaceNth ::
      P.PrimMonad m
@@ -51,13 +52,17 @@ solve instructions = do
   v <- V.thaw $ V.fromList instructions
   helper v 0 0
 
---tests =
---  describe "solve" $
---  it "works with example" $ solve [0, 3, 0, 1, -3] `shouldBe` 10
+tests =
+  describe "solve" $
+  it "works with example" $ do
+    res <- solve [0, 3, 0, 1, -3]
+    res `shouldBe` 10
+
 main :: IO ()
 main = do
+  hspec tests
   ex <- solve [0, 3, 0, 1, -3]
-  print $ ex
+  print ex
   inputLines <- lines <$> readFile "./day05input.txt"
   let input = map (\s -> read s :: Int) inputLines
   solved <- solve input
