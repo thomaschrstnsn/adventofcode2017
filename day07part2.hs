@@ -3,6 +3,7 @@
   script
   --resolver lts-9.0
   --package hspec
+  --package containers
 -}
 import Data.Char (isDigit)
 import Data.Foldable (Foldable(..), find)
@@ -11,6 +12,7 @@ import Data.List (maximumBy, nub)
 import Data.Maybe (catMaybes, fromMaybe)
 import Data.Monoid (Sum(..), getSum)
 import Data.Ord (compare)
+import Data.Tree
 import Test.Hspec (describe, hspec, it, shouldBe)
 
 type Program a = (String, a)
@@ -50,23 +52,8 @@ readSpecs s = catMaybes $ readSpec <$> lines s
 specsFromFile :: String -> IO [ProgramSpec]
 specsFromFile fn = readSpecs <$> readFile fn
 
-data Tree a
-  = Node a
-         [Tree a]
-  | Leaf a
-  deriving (Show, Eq)
-
 root :: Tree a -> a
 root (Node x _) = x
-root (Leaf x) = x
-
-instance Foldable Tree where
-  foldMap f (Leaf x) = f x
-  foldMap f (Node x cs) = f x `mappend` mconcat (fmap (foldMap f) cs)
-
-instance Functor Tree where
-  fmap f (Node x cs) = Node (f x) (fmap (fmap f) cs)
-  fmap f (Leaf x) = Leaf (f x)
 
 type ProgramNode = Program Int
 
@@ -86,9 +73,7 @@ buildTree ps = fmap (buildSubtree . name) root
         (error $ "could not find node: '" ++ n ++ "'")
         (find (\x -> fst x == n) ps)
     buildSubtree n =
-      case (sAbove . snd) spec of
-        [] -> Leaf $ spec2node spec
-        xs -> Node (spec2node spec) (fmap buildSubtree xs)
+      Node (spec2node spec) (buildSubtree <$> (sAbove . snd) spec)
       where
         spec = findSpec n
 
@@ -100,7 +85,6 @@ summedTree (Node (n, weight) cs) =
   Node (n, weightAbove + weight) (fmap summedTree cs)
   where
     weightAbove = getSum $ foldMap (Sum . sumOfAbove) cs
-summedTree (Leaf x) = Leaf x
 
 unbalancedAtLevel :: [Tree ProgramNode] -> [(String, Int)]
 unbalancedAtLevel levelNodes =
@@ -109,14 +93,12 @@ unbalancedAtLevel levelNodes =
   map (\(n, w) -> (n, w - mostFreq)) namesAndWeights
   where
     nameAndWeight (Node (n, w) _) = [(n, w)]
-    nameAndWeight (Leaf (n, w)) = [(n, w)]
     namesAndWeights = foldMap nameAndWeight levelNodes
     weightFreq w = length $ filter (\(_, w') -> w' == w) namesAndWeights
     mostFreq = maximumBy (compare `on` weightFreq) $ map snd namesAndWeights
 
 findUnbalanced :: Tree ProgramNode -> [(String, Int)]
 findUnbalanced (Node _ cs) = unbalancedAtLevel cs ++ foldMap findUnbalanced cs
-findUnbalanced (Leaf _) = []
 
 solve :: [ProgramSpec] -> Maybe [(String, Int)]
 solve inp = (findUnbalanced . summedTree) <$> buildTree inp
@@ -126,7 +108,7 @@ example = specsFromFile "day07example.txt"
 
 tests = do
   describe "foldable tree" $ do
-    let t = Node "hej" [Leaf "med", Leaf "dig"]
+    let t = Node "hej" [Node "med" [], Node "dig" []]
     it "foldMap" $ foldMap (\x -> [x]) t `shouldBe` ["hej", "med", "dig"]
   describe "nonRoots" $
     it "works" $ do
@@ -160,7 +142,7 @@ input = specsFromFile "day07input.txt"
 main :: IO ()
 main = do
   ex <- example
-  print ex
+  putStrLn $ maybe "empty" (drawTree . fmap show . summedTree) (buildTree ex)
   hspec tests
   inp <- input
   putStrLn $ "solution: " ++ show (solve inp)
