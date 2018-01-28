@@ -57,6 +57,8 @@ root (Node x _) = x
 
 type ProgramNode = Program Int
 
+type SummedProgramNode = Program (Int, Int)
+
 spec2node :: ProgramSpec -> ProgramNode
 spec2node (n, s) = (n, sWeight s)
 
@@ -80,24 +82,27 @@ buildTree ps = fmap (buildSubtree . name) root
 sumOfAbove :: Tree ProgramNode -> Int
 sumOfAbove t = getSum $ foldMap (Sum . snd) t
 
-summedTree :: Tree ProgramNode -> Tree ProgramNode
+summedTree :: Tree ProgramNode -> Tree SummedProgramNode
 summedTree (Node (n, weight) cs) =
-  Node (n, weightAbove + weight) (fmap summedTree cs)
+  Node (n, (weight, weightAbove)) (fmap summedTree cs)
   where
     weightAbove = getSum $ foldMap (Sum . sumOfAbove) cs
 
-unbalancedAtLevel :: [Tree ProgramNode] -> [(String, Int)]
+unbalancedAtLevel :: [Tree SummedProgramNode] -> [(String, Int)]
 unbalancedAtLevel levelNodes =
-  map (\(n, _) -> (n, mostFreq)) $
-  filter (\(_, dw) -> dw /= 0) $
-  map (\(n, w) -> (n, w - mostFreq)) namesAndWeights
+  map (\(n, w, dw) -> (n, w - dw)) $
+  filter (\(_, _, dw) -> dw /= 0) $
+  map (\(n, w, wa) -> (n, w, w + wa - mostFreq)) namesAndWeights
   where
-    nameAndWeight (Node (n, w) _) = [(n, w)]
+    nameAndWeight (Node (n, (w, wa)) _) = [(n, w, wa)]
     namesAndWeights = foldMap nameAndWeight levelNodes
-    weightFreq w = length $ filter (\(_, w') -> w' == w) namesAndWeights
-    mostFreq = maximumBy (compare `on` weightFreq) $ map snd namesAndWeights
+    weightFreq w =
+      length $ filter (\(_, w', wa) -> w' + wa == w) namesAndWeights
+    mostFreq =
+      maximumBy (compare `on` weightFreq) $
+      map (\(_, w, wa) -> w + wa) namesAndWeights
 
-findUnbalanced :: Tree ProgramNode -> [(String, Int)]
+findUnbalanced :: Tree SummedProgramNode -> [(String, Int)]
 findUnbalanced (Node _ cs) = unbalancedAtLevel cs ++ foldMap findUnbalanced cs
 
 solve :: [ProgramSpec] -> Maybe [(String, Int)]
@@ -105,6 +110,16 @@ solve inp = (findUnbalanced . summedTree) <$> buildTree inp
 
 example :: IO [ProgramSpec]
 example = specsFromFile "day07example.txt"
+
+filterTree :: (a -> Bool) -> Tree a -> Maybe (Tree a)
+filterTree f (Node n cs) =
+  if matchesNode || matchesChildren
+    then Just (Node n matchingChildren)
+    else Nothing
+  where
+    matchesNode = f n
+    matchingChildren = catMaybes $ fmap (filterTree f) cs
+    matchesChildren = not $ null matchingChildren
 
 tests = do
   describe "foldable tree" $ do
@@ -134,7 +149,7 @@ tests = do
   describe "solve" $
     it "works with example" $ do
       ex <- example
-      solve ex `shouldBe` Just [("ugml", 243)]
+      solve ex `shouldBe` Just [("ugml", 60)]
 
 input :: IO [ProgramSpec]
 input = specsFromFile "day07input.txt"
@@ -142,7 +157,14 @@ input = specsFromFile "day07input.txt"
 main :: IO ()
 main = do
   ex <- example
-  putStrLn $ maybe "empty" (drawTree . fmap show . summedTree) (buildTree ex)
+  let exTree = buildTree ex
+  putStrLn $ maybe "empty" (drawTree . fmap show . summedTree) exTree
   hspec tests
   inp <- input
   putStrLn $ "solution: " ++ show (solve inp)
+  let inpTree = summedTree <$> buildTree inp
+  let filtered =
+        inpTree >>=
+        filterTree (\(n, _) -> n `elem` ["qjvtm", "boropxd", "cwwwj"])
+  putStrLn "filtered"
+  putStrLn $ maybe "empty" (drawTree . fmap show) filtered
