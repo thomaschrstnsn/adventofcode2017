@@ -6,8 +6,8 @@
   --package hspec-core
   --package parsec
 -}
-import Test.Hspec (SpecWith, describe, hspec, it, shouldBe)
-import Test.Hspec.Core.Spec (fromSpecList, specItem)
+import Specs (specFromExamples, specItem)
+import Test.Hspec (Spec, SpecWith, describe, hspec, it, shouldBe)
 
 rotate :: [Int] -> Int -> Int -> [Int]
 rotate xs index len = result
@@ -38,8 +38,7 @@ prod _ = error "not enough elements for product"
 solve :: [Int] -> Int
 solve = prod . hash [0 .. 255]
 
-specFromExamples examples builder = fromSpecList $ map builder examples
-
+rotateSpec :: Spec
 rotateSpec =
   specFromExamples
     [ ([0, 1, 2, 3, 4], 0, 3, [2, 1, 0, 3, 4])
@@ -58,7 +57,7 @@ rotateSpec =
 
 tests :: SpecWith ()
 tests = do
-  describe "rotate" $ rotateSpec
+  describe "rotate" rotateSpec
   describe "hash" $
     it "works as example" $
     hash [0 .. 4] [3, 4, 1, 5] `shouldBe` [3, 4, 2, 1, 0]

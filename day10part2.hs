@@ -9,8 +9,8 @@
 import Data.Bits (xor)
 import Data.Char (ord)
 import Numeric (showHex)
-import Test.Hspec (SpecWith, describe, hspec, it, shouldBe)
-import Test.Hspec.Core.Spec (fromSpecList, specItem)
+import Specs (specFromExamples, specItem)
+import Test.Hspec (Spec, SpecWith, describe, hspec, it, shouldBe)
 
 asciiToInt :: String -> [Int]
 asciiToInt s = ord <$> s
@@ -32,8 +32,8 @@ hash rounds circlist lengths = go 0 0 circlist lengths (rounds - 1)
   where
     go _ _ cl [] 0 = cl
     go index skipsize cl [] r = go index skipsize cl lengths (r - 1)
-    go index skipsize circlist (l:ls) r =
-      go (index + skipsize + l) (1 + skipsize) (rotate circlist index l) ls r
+    go index skipsize cl (l:ls) r =
+      go (index + skipsize + l) (1 + skipsize) (rotate cl index l) ls r
 
 input :: String
 input = "102,255,99,252,200,24,219,57,103,2,226,254,1,0,69,216"
@@ -62,8 +62,7 @@ solve s = hexadecimal $ sparseToDense $ hash 64 [0 .. 255] (il ++ extraLength)
   where
     il = asciiToInt s
 
-specFromExamples examples builder = fromSpecList $ map builder examples
-
+rotateSpec :: Spec
 rotateSpec =
   specFromExamples
     [ ([0, 1, 2, 3, 4], 0, 3, [2, 1, 0, 3, 4])
@@ -80,6 +79,7 @@ rotateSpec =
           show index ++ ", " ++ show len ++ ") yields: " ++ show expected) $
        rotate inp index len `shouldBe` expected)
 
+solveSpec :: Spec
 solveSpec =
   specFromExamples
     [ ("", "a2582a3a0e66e6e86e3812dcb672a272")
