@@ -4,35 +4,42 @@
   --resolver lts-9.0
   --package hspec
   --package hspec-core
-  --package parsec
+  --package containers
 -}
+{-# LANGUAGE ViewPatterns #-}
+
 import Data.Bits (xor)
 import Data.Char (ord)
+import Data.Foldable (toList)
+import qualified Data.Sequence as Seq
+import Data.Sequence (Seq, ViewL(..), (><))
 import Numeric (showHex)
 import Specs (specFromExamples, specItem)
 import Test.Hspec (Spec, SpecWith, describe, hspec, it, shouldBe)
 
-asciiToInt :: String -> [Int]
-asciiToInt s = ord <$> s
+asciiToInt :: String -> Seq Int
+asciiToInt s = ord <$> Seq.fromList s
 
-rotate :: [Int] -> Int -> Int -> [Int]
-rotate xs index len = result
+rotate :: Seq Int -> Int -> Int -> Seq Int
+rotate xs index' len = result
   where
-    l = length xs
-    ls = cycle xs
-    reversed = reverse $ take len $ drop index ls
-    spliced = drop (len + index) ls
-    total = take l (reversed ++ spliced)
-    index' = index `mod` l
-    (t, h) = splitAt (l - index') total
-    result = h ++ t
+    l = Seq.length xs
+    index = index' `mod` l
+    ls = xs >< xs
+    reversed = Seq.reverse $ Seq.take len $ Seq.drop index ls
+    spliced = Seq.drop (len + index) ls
+    total = Seq.take l (reversed >< spliced)
+    (t, h) = Seq.splitAt (l - index) total
+    result = h >< t
 
-hash :: Int -> [Int] -> [Int] -> [Int]
+hash :: Int -> Seq Int -> Seq Int -> Seq Int
 hash rounds circlist lengths = go 0 0 circlist lengths (rounds - 1)
   where
-    go _ _ cl [] 0 = cl
-    go index skipsize cl [] r = go index skipsize cl lengths (r - 1)
-    go index skipsize cl (l:ls) r =
+    go :: Int -> Int -> Seq Int -> Seq Int -> Int -> Seq Int
+    go _ _ cl (Seq.viewl -> EmptyL) 0 = cl
+    go index skipsize cl (Seq.viewl -> EmptyL) r =
+      go index skipsize cl lengths (r - 1)
+    go index skipsize cl (Seq.viewl -> l :< ls) r =
       go (index + skipsize + l) (1 + skipsize) (rotate cl index l) ls r
 
 input :: String
@@ -54,11 +61,13 @@ hexadecimal = foldMap toHex
            then '0' : hex
            else hex
 
-extraLength :: [Int]
-extraLength = [17, 31, 73, 47, 23]
+extraLength :: Seq Int
+extraLength = Seq.fromList [17, 31, 73, 47, 23]
 
 solve :: String -> String
-solve s = hexadecimal $ sparseToDense $ hash 64 [0 .. 255] (il ++ extraLength)
+solve s =
+  hexadecimal $
+  sparseToDense $ toList $ hash 64 (Seq.fromList [0 .. 255]) (il >< extraLength)
   where
     il = asciiToInt s
 
@@ -77,7 +86,7 @@ rotateSpec =
           show inp ++
           ", " ++
           show index ++ ", " ++ show len ++ ") yields: " ++ show expected) $
-       rotate inp index len `shouldBe` expected)
+       rotate (Seq.fromList inp) index len `shouldBe` (Seq.fromList expected))
 
 solveSpec :: Spec
 solveSpec =
@@ -96,9 +105,10 @@ tests = do
   describe "rotate" rotateSpec
   describe "hash" $
     it "works as example" $
-    hash 1 [0 .. 4] [3, 4, 1, 5] `shouldBe` [3, 4, 2, 1, 0]
+    hash 1 (Seq.fromList [0 .. 4]) (Seq.fromList [3, 4, 1, 5]) `shouldBe`
+    Seq.fromList [3, 4, 2, 1, 0]
   describe "asciiToInt" $
-    it "works" $ asciiToInt "1,2,3" `shouldBe` [49, 44, 50, 44, 51]
+    it "works" $ asciiToInt "1,2,3" `shouldBe` Seq.fromList [49, 44, 50, 44, 51]
   describe "denseToSparse" $ do
     it "works as example" $
       sparseToDense [65, 27, 9, 1, 4, 3, 40, 50, 91, 7, 6, 0, 2, 5, 68, 22] `shouldBe`

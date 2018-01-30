@@ -4,7 +4,6 @@
   --resolver lts-9.0
   --package hspec
   --package hspec-core
-  --package parsec
 -}
 import Specs (specFromExamples, specItem)
 import Test.Hspec (Spec, SpecWith, describe, hspec, it, shouldBe)
