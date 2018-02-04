@@ -9,7 +9,7 @@
 import Data.Either (lefts, rights)
 import Data.List.Split (splitOn)
 import Specs (specFromExamples, specItem)
-import Test.Hspec (Spec, SpecWith, describe, hspec, it, shouldBe)
+import Test.Hspec (SpecWith, describe, hspec, shouldBe)
 
 data Direction
   = N
@@ -41,8 +41,41 @@ readPath s =
   where
     paths = readDirection <$> splitOn "," s
 
-solve :: Path -> Path
-solve = undefined
+-- https://www.redblobgames.com/grids/hexagons/#coordinates-cube
+data CubeCoordinate = CubeCoordinate
+  { ccX :: Int
+  , ccY :: Int
+  , ccZ :: Int
+  } deriving (Show, Eq)
+
+coord :: (Int, Int, Int) -> CubeCoordinate
+coord (x, y, z) = CubeCoordinate {ccX = x, ccY = y, ccZ = z}
+
+instance Monoid CubeCoordinate where
+  mempty = CubeCoordinate {ccX = 0, ccY = 0, ccZ = 0}
+  mappend a b = CubeCoordinate {ccX = x, ccY = y, ccZ = z}
+    where
+      add f = f a + f b
+      x = add ccX
+      y = add ccY
+      z = add ccZ
+
+directionAsCoord :: Direction -> CubeCoordinate
+directionAsCoord N = coord (0, 1, -1)
+directionAsCoord NE = coord (1, 0, -1)
+directionAsCoord SE = coord (1, -1, 0)
+directionAsCoord S = coord (0, -1, 1)
+directionAsCoord SW = coord (-1, 0, 1)
+directionAsCoord NW = coord (-1, 1, 0)
+
+-- https://www.redblobgames.com/grids/hexagons/#distances
+hexDistance :: CubeCoordinate -> CubeCoordinate -> Int
+hexDistance a b = (absDiff ccX + absDiff ccY + absDiff ccZ) `div` 2
+  where
+    absDiff f = abs (f a - f b)
+
+solve :: Path -> Int
+solve p = hexDistance mempty $ mconcat $ directionAsCoord <$> p
 
 input :: IO Path
 input = do
@@ -50,8 +83,22 @@ input = do
   let eitherPaths = readPath $ head $ lines file
   return $ either (error . mconcat) id eitherPaths
 
+solveSpec :: SpecWith ()
+solveSpec =
+  specFromExamples
+    [ ("ne,ne,ne", 3)
+    , ("ne,ne,sw,sw", 0)
+    , ("ne,ne,s,s", 2)
+    , ("se,sw,se,sw,sw", 3)
+    ]
+    (\(inp, expected) ->
+       specItem
+         ("distance from (0,0,0) to end of path: '" ++
+          inp ++ "' should be: " ++ show expected) $
+       (solve <$> readPath inp) `shouldBe` Right expected)
+
 tests :: SpecWith ()
-tests = describe "x" $ it "y" $ "x" `shouldBe` "y"
+tests = describe "solve" solveSpec
 
 main :: IO ()
 main = do
