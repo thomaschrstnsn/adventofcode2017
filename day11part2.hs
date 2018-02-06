@@ -7,7 +7,6 @@
   --package split
 -}
 import Data.Either (lefts, rights)
-import Data.List (inits)
 import Data.List.Split (splitOn)
 import Specs (specFromExamples, specItem)
 import Test.Hspec (SpecWith, describe, hspec, shouldBe)
@@ -76,8 +75,13 @@ hexDistance a b = (absDiff ccX + absDiff ccY + absDiff ccZ) `div` 2
     absDiff f = abs (f a - f b)
 
 solve :: Path -> Int
-solve p =
-  maximum $ fmap (hexDistance mempty . mconcat) $ inits $ directionAsCoord <$> p
+solve p = snd $ foldl helper (mempty, 0) $ directionAsCoord <$> p
+  where
+    helper :: (CubeCoordinate, Int) -> CubeCoordinate -> (CubeCoordinate, Int)
+    helper (position, maxDist) delta =
+      (newPos, max (hexDistance mempty newPos) maxDist)
+      where
+        newPos = mappend position delta
 
 input :: IO Path
 input = do
