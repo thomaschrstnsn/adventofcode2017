@@ -6,27 +6,17 @@
   --package hspec-core
   --package containers
 -}
-import Control.Arrow ((&&&))
 import Data.Char (isDigit)
 import Data.Either (partitionEithers)
 import Test.Hspec (SpecWith, describe, hspec, it, shouldBe)
 
-data Direction
-  = Up
-  | Down
-  deriving (Show, Eq)
-
 data Firewall = Firewall
   { fwDepth :: Int
-  , fwPosition :: Int
   , fwRange :: Int
-  , fwDirection :: Direction
   } deriving (Show, Eq)
 
 mkFirewall :: Int -> Int -> Firewall
-mkFirewall depth range =
-  Firewall
-  {fwDepth = depth, fwPosition = 0, fwRange = range, fwDirection = Down}
+mkFirewall depth range = Firewall {fwDepth = depth, fwRange = range}
 
 readInt :: String -> Either String Int
 readInt s =
@@ -40,9 +30,7 @@ readSingleFirewall s =
     [sDepth, sRange] -> do
       depth <- readInt $ stripColon sDepth
       range <- readInt sRange
-      return
-        Firewall
-        {fwRange = range, fwDepth = depth, fwPosition = 0, fwDirection = Down}
+      return $ mkFirewall depth range
     _ -> Left "Expected atleast 2 words in string"
   where
     stripColon = takeWhile (/= ':')
@@ -53,39 +41,21 @@ readFirewalls ls =
     ([], firewalls) -> Right firewalls
     (errs, _) -> Left errs
 
-switch :: Direction -> Direction
-switch Up = Down
-switch Down = Up
+modForRange :: Int -> Int
+modForRange n = (n - 1) * 2
 
-tick :: Firewall -> Firewall
-tick fw@Firewall {fwPosition = pos, fwRange = range, fwDirection = direction} =
-  fw {fwPosition = newPos, fwDirection = newDirection}
-  where
-    newDirection =
-      if (pos + 1) == range || (pos == 0 && direction /= Down)
-        then switch direction
-        else direction
-    newPos =
-      if newDirection == Down
-        then pos + 1
-        else pos - 1
+modForFw :: Firewall -> Int
+modForFw = modForRange . fwRange
+
+validFw :: Firewall -> Int -> Bool
+validFw fw offset = ((offset + fwDepth fw) `mod` modForFw fw) /= 0
+
+flawlessOffset :: [Firewall] -> Int -> Bool
+flawlessOffset [] _ = True
+flawlessOffset (fw:fws) offset = validFw fw offset && flawlessOffset fws offset
 
 solve :: [Firewall] -> Int
-solve fws' = length $ takeWhile (not . helper 0) fails
-  where
-    helper :: Int -> [Firewall] -> Bool
-    helper _ [] = True
-    helper depth (fw:fws) =
-      if fwIsForDepth && fwPosition fw == 0
-        then False
-        else helper (depth + 1) (map tick nextFws)
-      where
-        fwIsForDepth = fwDepth fw == depth
-        nextFws =
-          if fwIsForDepth
-            then fws
-            else fw : fws
-    fails = iterate (map tick) fws'
+solve fws = head $ filter (flawlessOffset fws) [0 ..]
 
 input :: IO [Firewall]
 input = do
@@ -98,28 +68,15 @@ example = ["0: 3", "1: 2", "4: 4", "6: 4"]
 
 tests :: SpecWith ()
 tests = do
-  describe "tick" $
-    it "moves up and down" $
-    map (fwPosition &&& fwDirection) (take 8 $ iterate tick (mkFirewall 0 3)) `shouldBe`
-    [ (0, Down)
-    , (1, Down)
-    , (2, Down)
-    , (1, Up)
-    , (0, Up)
-    , (1, Down)
-    , (2, Down)
-    , (1, Up)
-    ]
-  describe "solve" $ do
+  describe "modForRange" $
+    it "works" $ modForRange <$> [2, 3, 4, 5] `shouldBe` [2, 4, 6, 8]
+  describe "solve" $
     it "works with example" $
-      solve <$> readFirewalls example `shouldBe` Right 10
-    it "works with input" $ do
-      inp <- input
-      solve inp `shouldBe` 3905748
+    solve <$> readFirewalls example `shouldBe` Right 10
 
 main :: IO ()
 main = do
   inp <- input
   print $ length inp
   hspec tests
-  putStrLn $ "solution: " ++ show (solve inp)
+  putStrLn $ "solution: " ++ show (solve inp) ++ " expected 3905748"
