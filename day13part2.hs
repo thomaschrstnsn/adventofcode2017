@@ -110,9 +110,12 @@ tests = do
     , (2, Down)
     , (1, Up)
     ]
-  describe "solve" $
+  describe "solve" $ do
     it "works with example" $
-    solve <$> readFirewalls example `shouldBe` Right 10
+      solve <$> readFirewalls example `shouldBe` Right 10
+    it "works with input" $ do
+      inp <- input
+      solve inp `shouldBe` 3905748
 
 main :: IO ()
 main = do
