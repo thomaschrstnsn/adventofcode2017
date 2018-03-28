@@ -71,8 +71,9 @@ readMoves x = do
     (Left err) -> Left $ show err
     (Right r) -> Right r
 
-solve :: [Program] -> [Move] -> [Program]
-solve programList moves = runST $ toVectorAndBack programList (`solveMV` moves)
+solve :: [Program] -> [Move] -> Int -> [Program]
+solve programList moves repeats =
+  runST $ toVectorAndBack programList (\v -> solveMV v moves repeats)
 
 spin :: PrimMonad m => MVector (PrimState m) Program -> Int -> m ()
 spin v n = do
@@ -104,18 +105,35 @@ partner v a b = mapM_ change [0 .. (MV.length v - 1)]
         then MV.write v i b
         else when (x == b) $ MV.write v i a
 
-solveMV :: PrimMonad m => MVector (PrimState m) Program -> [Move] -> m ()
-solveMV _ [] = return ()
-solveMV programs (m:ms) = do
+solveMV :: PrimMonad m => MVector (PrimState m) Program -> [Move] -> Int -> m ()
+solveMV programs moves n = mapM_ (\_ -> solveMV' programs moves) [1 .. n]
+
+solveMV' :: PrimMonad m => MVector (PrimState m) Program -> [Move] -> m ()
+solveMV' _ [] = return ()
+solveMV' programs (m:ms) = do
   _ <-
     case m of
       Spin x -> spin programs x
       Exchange (i, j) -> exchange programs i j
       Partner (a, b) -> partner programs a b
-  solveMV programs ms
+  solveMV' programs ms
 
-readAndSolve :: String -> [Program] -> Either String [Program]
-readAndSolve s ps = solve ps <$> readMoves s
+findCycle :: [Program] -> [Move] -> Either String Int
+findCycle ps ms =
+  case pss of
+    [] -> Left "Could not find cycle"
+    (_, x):_ -> Right x
+  where
+    pss =
+      filter ((ps ==) . fst) $
+      take 4650 $ zip (drop 1 $ iterate (\ps' -> solve ps' ms 1) ps) [1 ..]
+
+readAndSolve :: String -> [Program] -> Int -> Either String [Program]
+readAndSolve s ps n = do
+  moves <- readMoves s
+  cycleIteration <- findCycle ps moves
+  let iterationsToRun = n `mod` cycleIteration
+  return $ solve ps moves iterationsToRun
 
 input :: IO String
 input = readFile "day16input.txt"
@@ -146,11 +164,12 @@ tests = do
       Right [Exchange (3, 11), Spin 10, Exchange (0, 10)]
   describe "Example" $
     it "works as intended" $
-    solve "abcde" [Spin 1, Exchange (3, 4), Partner ('e', 'b')] `shouldBe`
+    solve "abcde" [Spin 1, Exchange (3, 4), Partner ('e', 'b')] 1 `shouldBe`
     "baedc"
 
 main :: IO ()
 main = do
   hspec tests
   inp <- input
-  putStrLn $ "solution: " ++ show (readAndSolve inp ['a' .. 'p'])
+  putStrLn $
+    "solution: " ++ show (readAndSolve inp ['a' .. 'p'] (1000 * 1000 * 1000))
